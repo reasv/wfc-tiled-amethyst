@@ -3,16 +3,33 @@ extern crate wfc;
 extern crate direction;
 extern crate rand;
 extern crate coord_2d;
+extern crate ron;
 
 use std::num::NonZeroU32;
 use std::collections::HashSet;
+use std::collections::HashMap;
+
+use std::fs::File;
 use direction::{CardinalDirectionTable, CardinalDirections};
-use wfc::{GlobalStats, ForbidPattern, ForbidInterface, ForbidNothing, Wrap, PatternId, PatternDescription, PatternTable, RunOwn, retry, wrap};
+use wfc::{GlobalStats, ForbidPattern, ForbidInterface, Wrap, PatternId, PatternDescription, PatternTable, RunOwn, retry, wrap};
 use rand::Rng;
 pub use coord_2d::{Coord, Size};
 pub use wrap::WrapXY;
 use image::{DynamicImage, Rgba, RgbaImage};
 
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, Clone)]
+struct AdjacencyRule {
+    name: String,
+    weight: u32,
+    directions: Vec<Vec<u32>>,
+    all_directions: Vec<u32>
+}
+#[derive(Debug, Deserialize, Clone)]
+struct TileRules {
+    rules: HashMap<u32, AdjacencyRule>
+}
 macro_rules! map(
     { $($key:expr => $value:expr),+ } => {
         {
@@ -47,8 +64,61 @@ impl ForbidPattern for Forbid {
     }
 }
 
+
+fn load_rules_file(path: &str) -> Result<TileRules, String>{
+    let f = File::open(path).map_err(|e| format!("{}", e))?;
+    match ron::de::from_reader(f){
+        Ok(x) => return Ok(x),
+        Err(e) => {
+            println!("Failed to load config: {}", e);
+            return Err(format!("{}", e));
+        }
+    }
+}
+fn build_stats(tr: &TileRules) -> GlobalStats{
+    // Keeps all tile ids in one consistent order
+    let mut tids = Vec::new();
+    // Maps tids to their position in the vector
+    let mut tid_index: HashMap<u32, usize> = HashMap::new();
+    // new rule map containing processed rules
+    let mut rule_map: HashMap<u32, AdjacencyRule> = tr.rules.clone();
+    for (tid, _r) in &tr.rules {
+        tids.push(tid);
+        tid_index.insert(*tid, tids.len());
+        let mut rule = rule_map.get(tid).unwrap().clone();
+        // If directions is empty, set it to 4 empty vectors
+        if rule.directions.len() != 4 {
+            rule.directions = vec![[].to_vec(); 4];
+        }
+        // Add all_directions ids to all 4 directions
+        for i in 0..3 {
+            rule.directions[i].extend(&rule.all_directions);
+        }
+        rule_map.insert(*tid, rule);
+    }
+    let mut patterns: Vec<PatternDescription> = Vec::new();
+    for i in 0..(tids.len() - 1) {
+        let rule = rule_map.get(&tids[i]).unwrap();
+        let mut allowed_neighbours = CardinalDirectionTable::default();
+        let mut direc = 0;
+        for direction in CardinalDirections {
+            // Convert tids to indices from `tids`
+            let allowed_index = rule.directions[direc].iter().map(|tid| *tid_index.get(&tid).unwrap() as u32).collect::<Vec<u32>>();
+            allowed_neighbours[direction] = allowed_index;
+            direc += 1;
+        }
+        patterns.push(PatternDescription::new(NonZeroU32::new(rule.weight), allowed_neighbours));
+    }
+    let table = PatternTable::from_vec(patterns);
+    let global_stats = GlobalStats::new(table);
+    return global_stats;
+}
+
 fn main() {
-    let rules = vec![vec![0,1], vec![1,2,0], vec![1,2]];
+    let tr: TileRules = load_rules_file(&"adjacency.ron").expect("Failed to open");
+    println!("{:?}", tr);
+
+    let rules = vec![vec![0,1], vec![0,1,2], vec![1,2]];
     let mut patterns = Vec::new();
     for allowed in rules {
         let weight = NonZeroU32::new(1);
@@ -63,7 +133,7 @@ fn main() {
     let output_size = Size::new(32, 32);
     let mut rng = rand::thread_rng();
     let mut border_tiles = HashSet::new();
-    border_tiles.insert(0);
+    border_tiles.insert(2);
     let forbid = Forbid {
         pattern_ids: border_tiles,
     };
@@ -93,4 +163,24 @@ fn main() {
     });
     let img = DynamicImage::ImageRgba8(rgba_image);
     img.save("output.png").expect("Failed to save");
+}
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_ron() {
+        let f = File::open(&"adjacency.ron").expect("Failed to open");
+        let tr: TileRules = match ron::de::from_reader(f){
+            Ok(x) => x,
+            Err(e) => {
+                println!("Failed to load config: {}", e);
+
+                std::process::exit(1);
+            }
+        };
+        println!("{:?}", tr);
+        return ();
+    }
 }

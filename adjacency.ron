@@ -1,0 +1,109 @@
+TileRules(
+    rules: {
+        0: (
+            name: "grass",
+            weight: 10,
+            directions: [],
+            all_directions: [0]
+        ),
+        81: (
+            name: "stone-road-center",
+            weight: 3,
+            directions: [
+                [73], // North
+                [82], // East
+                [89], // South
+                [80], // West
+                ],
+            all_directions: [81]
+        ),
+        73: (
+            name: "stone-road-north",
+            weight: 3,
+            directions: [
+                [0], // North
+                [73], // East
+                [81], // South
+                [73], // West
+                ],
+            all_directions: []
+        ),
+        89: (
+            name: "stone-road-south",
+            weight: 3,
+            directions: [
+                [81], // North
+                [89], // East
+                [0], // South
+                [89], // West
+                ],
+            all_directions: []
+        ),
+        80: (
+            name: "stone-road-west",
+            weight: 3,
+            directions: [
+                [80], // North
+                [81], // East
+                [80], // South
+                [0], // West
+                ],
+            all_directions: []
+        ),
+        82: (
+            name: "stone-road-east",
+            weight: 3,
+            directions: [
+                [82], // North
+                [0], // East
+                [82], // South
+                [81], // West
+                ],
+            all_directions: []
+        ),
+        74: (
+            name: "stone-road-corner-northeast",
+            weight: 3,
+            directions: [
+                [0], // North
+                [0], // East
+                [82], // South
+                [73], // West
+                ],
+            all_directions: []
+        ),
+        74: (
+            name: "stone-road-corner-northwest",
+            weight: 3,
+            directions: [
+                [0], // North
+                [73], // East
+                [80], // South
+                [0], // West
+                ],
+            all_directions: []
+        ),
+        74: (
+            name: "stone-road-corner-southeast",
+            weight: 3,
+            directions: [
+                [80], // North
+                [0], // East
+                [0], // South
+                [89], // West
+                ],
+            all_directions: []
+        ),
+        74: (
+            name: "stone-road-corner-southwest",
+            weight: 3,
+            directions: [
+                [82], // North
+                [0], // East
+                [89], // South
+                [0], // West
+                ],
+            all_directions: []
+        ),
+    }
+)
